@@ -18,7 +18,7 @@ services:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: user
       POSTGRES_DB: intervenant-manager
-      POSTGRES_PORT: 
+      POSTGRES_PORT:  
     volumes:
       - db-data:/var/lib/postgresql/data
   pgadmin:
