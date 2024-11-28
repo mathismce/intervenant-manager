@@ -1,5 +1,6 @@
 'use server';
 import { db } from './db';
+import { v4 as uuidv4 } from 'uuid';
 import { Intervenant } from './definitions/Intervenant'; // Adjust the import path as needed
 
 export async function fetchIntervenants(page: number = 1, limit: number = 10): Promise<{ intervenants: Intervenant[], totalPages: number }> {
@@ -35,6 +36,17 @@ export async function updateIntervenant(id: number, data: any) {
     }
   }
 
+  export async function deleteIntervenant(id: number): Promise<void> {
+    try {
+        const client = await db.connect();
+        await client.query('DELETE FROM "Intervenants" WHERE id = $1', [id]);
+        client.release();
+    } catch (e: any) {
+        console.error("Error deleting intervenant", e);
+        throw e;
+    }
+}
+
 export async function fetchIntervenant(id: number): Promise<Intervenant> {
     try {
         const client = await db.connect();
@@ -46,3 +58,27 @@ export async function fetchIntervenant(id: number): Promise<Intervenant> {
         throw e;
     }
 }
+
+
+export async function createIntervenant(data: any): Promise<Intervenant> {
+  const key = uuidv4();
+  const creationdate = new Date().toISOString();
+  const enddate = new Date();
+  enddate.setMonth(enddate.getMonth() + 2);
+  try {
+    const client = await db.connect();
+    const query = `
+      INSERT INTO "Intervenants" (firstname, lastname, email, key, creationdate, enddate)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `;
+    const values = [data.firstname, data.lastname, data.email, key, creationdate, enddate.toISOString()];
+    const result = await client.query(query, values);
+    client.release();
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error creating intervenant:', error);
+    throw error;
+  }
+}
+

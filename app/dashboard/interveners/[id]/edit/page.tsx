@@ -1,25 +1,26 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { fetchIntervenant } from '@/app/lib/data'; // Adjust the import path as needed
+import { Intervenant } from '@/app/lib/definitions/Intervenant';
+import EditIntervenantForm from '@/app/ui/dashboard/EditIntervenantForm';
+import { fetchIntervenant } from '@/app/lib/data';
+import React from 'react';
 
-import { Intervenant } from '@/app/lib/definitions/Intervenant'; // Adjust the import path as needed
-import EditIntervenantForm from '@/app/ui/dashboard/EditIntervenantForm'; // Adjust the import path as needed
-
-export default function EditIntervenantPage({ params }: { params: { id: Number } }) {
-    const id = params.id;
+export default function EditIntervenantPage({ params }: { params: Promise<{ id: number }> }) {
+  const { id } = React.use(params); // Utilise use() pour extraire `id` correctement
   const [intervenant, setIntervenant] = useState<Intervenant | null>(null);
   const [error, setError] = useState<string | null>(null);
-  console.log('id:', id);
 
   useEffect(() => {
-    fetchIntervenant(Number(id))
-      .then((data) => {
-        console.log(id);
-        console.log('Fetched intervenant:', data); 
+    async function fetchData() {
+      try {
+        const data = await fetchIntervenant(id);
         setIntervenant(data);
-      })
-      .catch((e) => setError(e.message));
+      } catch (err) {
+        setError('Failed to fetch intervenant data');
+      }
+    }
+    fetchData();
   }, [id]);
 
   if (error) {

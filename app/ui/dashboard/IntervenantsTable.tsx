@@ -1,14 +1,14 @@
+import Link from 'next/link';
 import Image from 'next/image';
 import { Intervenant } from '../../lib/definitions/Intervenant'; // Adjust the import path as needed
-import { useState } from 'react';
-import Link from 'next/link';
-
+import { deleteIntervenant } from '../../lib/data'; // Adjust the import path as needed
 
 type IntervenantsTableProps = {
   intervenants: Intervenant[];
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
+  onDelete: (id: number) => void; // Add onDelete prop
 };
 
 export default function IntervenantsTable({
@@ -16,7 +16,20 @@ export default function IntervenantsTable({
   currentPage,
   totalPages,
   onPageChange,
+  onDelete,
 }: IntervenantsTableProps) {
+  const handleDelete = async (id: number) => {
+    if (confirm('Es-tu sur de vouloir supprimer cet intervenant ?')) {
+      try {
+        await deleteIntervenant(id);
+        onDelete(id); // Call onDelete to update the state
+      } catch (error) {
+        console.error('Error deleting intervenant:', error);
+        alert('Failed to delete intervenant');
+      }
+    }
+  };
+
   return (
     <div className="mt-6 flow-root">
       <div className="inline-block min-w-full align-middle">
@@ -65,19 +78,22 @@ export default function IntervenantsTable({
                     {intervenant.email}
                   </td>
                   <td className="whitespace-nowrap px-3 py-3">
-                    {new Date(intervenant.creationdate).toLocaleDateString()}
+                  {new Date(intervenant.creationdate).toLocaleDateString()}
                   </td>
                   <td className="whitespace-nowrap px-3 py-3">
-                    {new Date(intervenant.enddate).toLocaleDateString()}
+                  {new Date(intervenant.enddate).toLocaleDateString()}
                   </td>
                   <td className="whitespace-nowrap px-3 py-3">
                     {intervenant.key}
                   </td>
-                  <td className="whitespace-nowrap py-3 pl-6 pr-3">
-                    <div className="flex justify-end gap-3">
-                      <Link href={`/dashboard/interveners/${intervenant.id}/edit` }>
-                        Modifier
+                  <td className=" ">
+                    <div className="flex justify-center gap-5">
+                      <Link href={`/dashboard/interveners/${intervenant.id}/edit`}>
+                        <Image src={'/edit.svg'} alt='edition' width={16} height={18} />
                       </Link>
+                      <button onClick={() => handleDelete(intervenant.id)} className="text-red-600 hover:text-red-900">
+                      <Image src={'/delete.svg'} alt='edition' width={14} height={16} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -90,17 +106,17 @@ export default function IntervenantsTable({
               disabled={currentPage === 1}
               className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
             >
-              Précédent
+              Previous
             </button>
             <span>
-              Page {currentPage} sur {totalPages}
+              Page {currentPage} of {totalPages}
             </span>
             <button
               onClick={() => onPageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
               className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
             >
-              Suivant
+              Next
             </button>
           </div>
         </div>
