@@ -24,10 +24,31 @@ export async function updateIntervenant(id: number, data: any) {
       const client = await db.connect();
       const query = `
         UPDATE "Intervenants"
-        SET firstname = $1, lastname = $2, email = $3, creationdate = $4, enddate = $5
-        WHERE id = $6
+        SET firstname = $1, lastname = $2, email = $3,  enddate = $4
+        WHERE id = $5
       `;
-      const values = [data.firstname, data.lastname, data.email, data.startDate, data.endDate, id];
+      const values = [data.firstname, data.lastname, data.email, data.enddate, id];
+      await client.query(query, values);
+      client.release();
+    } catch (error) {
+      console.error('Error updating intervenant:', error);
+      throw error;
+    }
+  }
+
+  export async function updateIntervenantKey(id: number) {
+    const key = uuidv4();
+    const creationdate = new Date().toISOString();
+    const enddate = new Date();
+    enddate.setMonth(enddate.getMonth() + 2);
+    try {
+      const client = await db.connect();
+      const query = `
+        UPDATE "Intervenants"
+        SET key = $1, creationdate = $2, enddate = $3
+        WHERE id = $4
+      `;
+      const values = [key, creationdate, enddate.toISOString(), id];
       await client.query(query, values);
       client.release();
     } catch (error) {

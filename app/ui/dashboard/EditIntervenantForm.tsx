@@ -9,11 +9,23 @@ type EditIntervenantFormProps = {
 };
 
 export default function EditIntervenantForm({ intervenant }: EditIntervenantFormProps) {
+  const formatDate = (date: Date) => {
+    const d = new Date(date);
+    const month = `0${d.getMonth() + 1}`.slice(-2);
+    const day = `0${d.getDate()}`.slice(-2);
+    const year = d.getFullYear();
+    return `${year}-${month}-${day}`;
+  };
+
   const [formData, setFormData] = useState({
     firstname: intervenant.firstname,
     lastname: intervenant.lastname,
-    email: intervenant.email
+    email: intervenant.email,
+    enddate: formatDate(new Date(intervenant.enddate))
   });
+  console.log("enddate :" , formData.enddate);
+  console.log("intervenant :" , intervenant);
+
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -33,6 +45,8 @@ export default function EditIntervenantForm({ intervenant }: EditIntervenantForm
       alert('Failed to update intervenant');
     }
   };
+
+ 
 
   return (
     <form onSubmit={handleSubmit}>
@@ -78,6 +92,19 @@ export default function EditIntervenantForm({ intervenant }: EditIntervenantForm
             className="block w-full rounded-md border border-gray-200 py-2 px-3 text-sm"
           />
         </div>
+        <div>
+        <label htmlFor="enddate" className="block text-sm font-medium text-gray-700">
+          Date de fin
+        </label>
+        <input
+          id="enddate"
+          name="enddate"
+          type="date"
+          value={formData.enddate}
+          onChange={handleChange}
+          className="block w-full rounded-md border border-gray-200 py-2 px-3 text-sm"
+        />
+      </div>
       </div>
       <div className="mt-6 flex justify-end gap-4">
         <button type="submit" className="bg-blue-500 text-white py-2 px-4 rounded">
@@ -87,3 +114,7 @@ export default function EditIntervenantForm({ intervenant }: EditIntervenantForm
     </form>
   );
 }
+function uuidv4() {
+  throw new Error('Function not implemented.');
+}
+

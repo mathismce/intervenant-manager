@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { v4 as uuidv4 } from 'uuid';
 import { Intervenant } from '../../lib/definitions/Intervenant'; // Adjust the import path as needed
-import { deleteIntervenant } from '../../lib/data'; // Adjust the import path as needed
+import { deleteIntervenant, updateIntervenantKey } from '../../lib/data'; // Adjust the import path as needed
 
 type IntervenantsTableProps = {
   intervenants: Intervenant[];
@@ -30,6 +31,18 @@ export default function IntervenantsTable({
     }
   };
 
+  const handleRegenerateKey = async (intervenant: Intervenant) => {
+
+    try {
+      await updateIntervenantKey(intervenant.id);
+      window.location.href = '/dashboard/interveners';
+
+    } catch (error) {
+      console.error('Error updating intervenant:', error);
+      alert('Failed to regenerate key');
+    }
+  };
+
   return (
     <div className="mt-6 flow-root">
       <div className="inline-block min-w-full align-middle">
@@ -52,7 +65,7 @@ export default function IntervenantsTable({
                 <th scope="col" className="px-3 py-5 font-medium">
                   Date de fin
                 </th>
-                <th scope="col" className="px-3 py-5 font-medium">
+                <th scope="col" className="w-12 px-3 py-5 font-medium">
                   Clé
                 </th>
                 <th scope="col" className="px-3 py-5 font-medium">
@@ -61,43 +74,46 @@ export default function IntervenantsTable({
               </tr>
             </thead>
             <tbody className="bg-white">
-              {intervenants.map((intervenant) => (
-                <tr
-                  key={intervenant.id}
-                  className="w-full border-b py-3 text-sm last-of-type:border-none [&:first-child>td:first-child]:rounded-tl-lg [&:first-child>td:last-child]:rounded-tr-lg [&:last-child>td:first-child]:rounded-bl-lg [&:last-child>td:last-child]:rounded-br-lg"
-                >
-                  <td className="whitespace-nowrap py-3 pl-6 pr-3">
-                    <div className="flex items-center gap-3">
-                      <p>{intervenant.firstname}</p>
-                    </div>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-3">
-                    {intervenant.lastname}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-3">
-                    {intervenant.email}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-3">
-                  {new Date(intervenant.creationdate).toLocaleDateString()}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-3">
-                  {new Date(intervenant.enddate).toLocaleDateString()}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-3">
-                    {intervenant.key}
-                  </td>
-                  <td className=" ">
-                    <div className="flex justify-center gap-5">
-                      <Link href={`/dashboard/interveners/${intervenant.id}/edit`}>
-                        <Image src={'/edit.svg'} alt='edition' width={16} height={18} />
-                      </Link>
-                      <button onClick={() => handleDelete(intervenant.id)} className="text-red-600 hover:text-red-900">
-                      <Image src={'/delete.svg'} alt='edition' width={14} height={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {intervenants.map((intervenant) => {
+                const isEndDateAfterToday = new Date(intervenant.enddate) < new Date();
+                return (
+                  <tr key={intervenant.id} className={isEndDateAfterToday ? 'bg-red-500 bg-opacity-20' : ''}>
+                    <td className="whitespace-nowrap px-3 py-3">
+                      <div className="flex items-center gap-3">
+                        <p>{intervenant.firstname}</p>
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3">
+                      {intervenant.lastname}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3">
+                      {intervenant.email}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3">
+                      {new Date(intervenant.creationdate).toLocaleDateString()}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3">
+                      {new Date(intervenant.enddate).toLocaleDateString()}
+                    </td>
+                    <td className="w-12 whitespace-nowrap px-3 py-3">
+                      {intervenant.key}
+                    </td>
+                    <td className=" ">
+                      <div className="flex justify-center gap-5">
+                        <Link href={`/dashboard/interveners/${intervenant.id}/edit`}>
+                          <Image src={'/edit.svg'} alt='edition' width={16} height={18} />
+                        </Link>
+                        <button onClick={() => handleDelete(intervenant.id)} className="text-red-600 hover:text-red-900">
+                          <Image src={'/delete.svg'} alt='edition' width={14} height={16} />
+                        </button>
+                        <button onClick={() => handleRegenerateKey(intervenant)} className="text-red-600 hover:text-red-900">
+                          <Image src={'/clé.svg'} alt='edition' width={14} height={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           <div className="flex justify-between mt-4">
@@ -124,3 +140,4 @@ export default function IntervenantsTable({
     </div>
   );
 }
+
