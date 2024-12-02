@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { fetchIntervenants } from '../../lib/data'; // Adjust the import path as needed
 import { Intervenant } from '../../lib/definitions/Intervenant'; // Adjust the import path as needed
 import IntervenantsTable from '../../ui/dashboard/IntervenantsTable'; // Adjust the import path as needed
-import { CreateIntervener } from '@/app/ui/dashboard/intervener/button';
+import { CreateIntervener, RegenerateAllKeys } from '@/app/ui/dashboard/intervener/button';
 
 export default function IntervenerPage() {
   const [intervenants, setIntervenants] = useState<Intervenant[]>([]);
@@ -29,6 +29,14 @@ export default function IntervenerPage() {
     setIntervenants((prevIntervenants) => prevIntervenants.filter((intervenant) => intervenant.id !== id));
   };
 
+  const handleUpdateIntervenant = (updatedIntervenant: Intervenant) => {
+    setIntervenants((prevIntervenants) =>
+      prevIntervenants.map((intervenant) =>
+        intervenant.id === updatedIntervenant.id ? updatedIntervenant : intervenant
+      )
+    );
+  };
+
   if (error) {
     return <div>Error: {error}</div>;
   }
@@ -38,6 +46,7 @@ export default function IntervenerPage() {
       <div className='flex justify-between'>
         <h1>Liste des Intervenants</h1>
         <CreateIntervener></CreateIntervener>
+        <RegenerateAllKeys></RegenerateAllKeys>
       </div>
       <IntervenantsTable
         intervenants={intervenants}
@@ -45,6 +54,7 @@ export default function IntervenerPage() {
         totalPages={totalPages}
         onPageChange={setCurrentPage}
         onDelete={handleDelete}
+        onUpdate={handleUpdateIntervenant}
       />
     </div>
   );

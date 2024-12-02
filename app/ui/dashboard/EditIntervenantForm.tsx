@@ -107,7 +107,7 @@ export default function EditIntervenantForm({ intervenant }: EditIntervenantForm
       </div>
       </div>
       <div className="mt-6 flex justify-end gap-4">
-        <button type="submit" className="bg-blue-500 text-white py-2 px-4 rounded">
+        <button type="submit" className="bg-rose-800 text-white py-2 px-4 rounded">
           Enregistrer les modifications
         </button>
       </div>

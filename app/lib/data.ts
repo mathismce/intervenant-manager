@@ -2,6 +2,7 @@
 import { db } from './db';
 import { v4 as uuidv4 } from 'uuid';
 import { Intervenant } from './definitions/Intervenant'; // Adjust the import path as needed
+import { revalidatePath } from 'next/cache';
 
 export async function fetchIntervenants(page: number = 1, limit: number = 10): Promise<{ intervenants: Intervenant[], totalPages: number }> {
     try {
@@ -51,11 +52,35 @@ export async function updateIntervenant(id: number, data: any) {
       const values = [key, creationdate, enddate.toISOString(), id];
       await client.query(query, values);
       client.release();
+      revalidatePath('/dashboard/interveners');
+      return {message: 'Clé regenerée'};
     } catch (error) {
       console.error('Error updating intervenant:', error);
       throw error;
     }
   }
+
+  export async function updateAllIntervenantKeys() {
+    const key = uuidv4();
+    const creationdate = new Date().toISOString();
+    const enddate = new Date();
+    enddate.setMonth(enddate.getMonth() + 2);
+    try {
+      const client = await db.connect();
+      const query = `
+        UPDATE "Intervenants"
+        SET key = $1, creationdate = $2, enddate = $3
+      `;
+      const values = [key, creationdate, enddate.toISOString()];
+      await client.query(query, values);
+      client.release();
+      revalidatePath('/dashboard/interveners');
+      return {message: 'Clés regenerées pour tous les intervenants'};
+    } catch (error) {
+      console.error('Error updating intervenants:', error);
+      throw error;
+    }
+}
 
   export async function deleteIntervenant(id: number): Promise<void> {
     try {

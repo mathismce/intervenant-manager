@@ -10,6 +10,7 @@ type IntervenantsTableProps = {
   totalPages: number;
   onPageChange: (page: number) => void;
   onDelete: (id: number) => void; // Add onDelete prop
+  onUpdate: (updatedIntervenant: Intervenant) => void;
 };
 
 export default function IntervenantsTable({
@@ -18,9 +19,9 @@ export default function IntervenantsTable({
   totalPages,
   onPageChange,
   onDelete,
+  onUpdate,
 }: IntervenantsTableProps) {
   const handleDelete = async (id: number) => {
-    if (confirm('Es-tu sur de vouloir supprimer cet intervenant ?')) {
       try {
         await deleteIntervenant(id);
         onDelete(id); // Call onDelete to update the state
@@ -28,15 +29,17 @@ export default function IntervenantsTable({
         console.error('Error deleting intervenant:', error);
         alert('Failed to delete intervenant');
       }
-    }
+    
   };
 
   const handleRegenerateKey = async (intervenant: Intervenant) => {
 
     try {
       await updateIntervenantKey(intervenant.id);
-      window.location.href = '/dashboard/interveners';
-
+      onUpdate({
+        ...intervenant,
+        key: uuidv4(), // Regenerate the key using uuid
+      });
     } catch (error) {
       console.error('Error updating intervenant:', error);
       alert('Failed to regenerate key');
@@ -68,7 +71,7 @@ export default function IntervenantsTable({
                 <th scope="col" className="w-12 px-3 py-5 font-medium">
                   Clé
                 </th>
-                <th scope="col" className="px-3 py-5 font-medium">
+                <th scope="col" className="w-24 px-3 py-5 font-medium">
                   Actions
                 </th>
               </tr>
@@ -78,15 +81,15 @@ export default function IntervenantsTable({
                 const isEndDateAfterToday = new Date(intervenant.enddate) < new Date();
                 return (
                   <tr key={intervenant.id} className={isEndDateAfterToday ? 'bg-red-500 bg-opacity-20' : ''}>
-                    <td className="whitespace-nowrap px-3 py-3">
+                    <td className="whitespace-nowrap text-sm px-3 py-3">
                       <div className="flex items-center gap-3">
                         <p>{intervenant.firstname}</p>
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3">
+                    <td className="whitespace-nowrap text-sm px-3 py-3">
                       {intervenant.lastname}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3">
+                    <td className="whitespace-nowrap text-sm px-3 py-3">
                       {intervenant.email}
                     </td>
                     <td className="whitespace-nowrap px-3 py-3">
@@ -95,10 +98,10 @@ export default function IntervenantsTable({
                     <td className="whitespace-nowrap px-3 py-3">
                       {new Date(intervenant.enddate).toLocaleDateString()}
                     </td>
-                    <td className="w-12 whitespace-nowrap px-3 py-3">
+                    <td className="w-24 text-sm whitespace-nowrap px-3 py-3">
                       {intervenant.key}
                     </td>
-                    <td className=" ">
+                    <td className="">
                       <div className="flex justify-center gap-5">
                         <Link href={`/dashboard/interveners/${intervenant.id}/edit`}>
                           <Image src={'/edit.svg'} alt='edition' width={16} height={18} />
