@@ -4,6 +4,32 @@ import { v4 as uuidv4 } from 'uuid';
 import { Intervenant } from './definitions/Intervenant'; // Adjust the import path as needed
 import { revalidatePath } from 'next/cache';
 
+
+import { signIn } from '@/auth';
+import { AuthError } from 'next-auth';
+import { z } from 'zod';
+ 
+
+export async function authenticate(
+    prevState: string | undefined,
+    formData: FormData,
+  ) {
+    try {
+      await signIn('credentials', formData);
+    } catch (error) {
+      if (error instanceof AuthError) {
+        switch (error.type) {
+          case 'CredentialsSignin':
+            return 'Invalid credentials.';
+          default:
+            return 'Something went wrong.';
+        }
+      }
+      throw error;
+    }
+  }
+
+
 export async function fetchIntervenants(page: number = 1, limit: number = 10): Promise<{ intervenants: Intervenant[], totalPages: number }> {
     try {
         const client = await db.connect();
