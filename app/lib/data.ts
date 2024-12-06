@@ -154,3 +154,27 @@ export async function createIntervenant(data: any): Promise<Intervenant> {
   }
 }
 
+export async function fetchIntervenantByKey(key: string) {
+  try {
+    const client = await db.connect();
+    const result = await client.query(`SELECT * FROM "Intervenants" WHERE key = $1`, [key]);
+    client.release();
+
+    if (result.rows.length > 0) {
+      const intervenant = result.rows[0];
+
+      if (intervenant.enddate < new Date()) {
+        throw new Error('key expired.');
+      } else {
+        return intervenant;
+      }
+    } else {
+      throw new Error('Intervenant not found.');
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'key expired.') {
+      throw new Error('expired');
+    }
+    throw new Error('Database Error: Failed to find intervenant by key.');
+  }
+}
