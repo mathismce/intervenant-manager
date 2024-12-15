@@ -16,6 +16,11 @@ interface Intervenant {
       from: string;
       to: string;
     }>;
+    [key: string]: Array<{
+      days: string;
+      from: string;
+      to: string;
+    }>;
   };
 }
 
@@ -25,10 +30,9 @@ export default function Page({ params }: { params: Promise<{ key: string }> }) {
   const [loading, setLoading] = useState(true);
   const calendarRef = useRef(null);
 
-  // Déballer `params` avec React.use()
   useEffect(() => {
     const unwrapParams = async () => {
-      const { key } = await params; // Déballer la promesse
+      const { key } = await params;
       setKey(key);
     };
     unwrapParams();
@@ -36,19 +40,13 @@ export default function Page({ params }: { params: Promise<{ key: string }> }) {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!key) {
-        return;
-      }
+      if (!key) return;
 
       try {
         setLoading(true);
         const intervenantData = await fetchIntervenantByKey(key);
         console.log(intervenantData);
-        if (!intervenantData) {
-          setIntervenant(null);
-        } else {
-          setIntervenant(intervenantData);
-        }
+        setIntervenant(intervenantData || null);
       } catch (error) {
         console.error(error);
       } finally {
@@ -59,17 +57,14 @@ export default function Page({ params }: { params: Promise<{ key: string }> }) {
     fetchData();
   }, [key]);
 
-  if (loading || key === null) {
-    return <div>Loading...</div>;
-  }
-
-  if (!intervenant) {
-    return (
-      <div>
-        <h1>La clé est expirée ou invalide.</h1>
-      </div>
-    );
-  }
+  const getStartDateOfWeek = (weekNumber: number, year: number) => {
+    const firstDayOfYear = new Date(year, 0, 1);
+    const daysOffset = (weekNumber - 1) * 7;
+    const startDate = new Date(firstDayOfYear.setDate(firstDayOfYear.getDate() + daysOffset));
+    const dayOfWeek = startDate.getDay();
+    const diff = startDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust when day is Sunday
+    return new Date(startDate.setDate(diff));
+  };
 
   const transformAvailabilityToEvents = (
     availability: Intervenant['availability']
@@ -83,71 +78,89 @@ export default function Page({ params }: { params: Promise<{ key: string }> }) {
       samedi: 6,
       dimanche: 0,
     };
-  
+
     const events = [];
-    const today = new Date();
-    const currentWeekStart = new Date(
-      today.setDate(today.getDate() - today.getDay() + 1) // Commence à lundi
-    );
-  
-    // Étendre les événements sur une période de 3 mois
-    const weeksToGenerate = 52; // Nombre de semaines
-    const daysInWeek = 7;
-  
-    // Fonction pour formater les heures
-    const formatTime = (time: string) => {
-      const [hours, minutes] = time.split(':');
-      const formattedHours = hours.padStart(2, '0');
-      const formattedMinutes = minutes.padStart(2, '0');
-      return `${formattedHours}:${formattedMinutes}`;
-    };
-  
-    for (let week = 0; week < weeksToGenerate; week++) {
-      const weekStart = new Date(currentWeekStart);
-      weekStart.setDate(currentWeekStart.getDate() + week * daysInWeek);
-  
-      // Calculer la semaine sous forme `Sxx`
-      const weekNumber = Math.ceil(
-        (weekStart.getTime() - new Date(weekStart.getFullYear(), 0, 1).getTime()) /
-          (7 * 24 * 60 * 60 * 1000)
-      );
-      const weekKey = `S${weekNumber}`;
-  
-      // Récupérer les disponibilités pour cette semaine (spécifique ou par défaut)
-      const slots =
-        availability[weekKey] !== undefined
-          ? availability[weekKey]
-          : availability.default;
-  
+    const startDate = new Date(new Date().getFullYear(), 8, 2); // Start from the week of 2nd September
+    const endDate = new Date(new Date().getFullYear() + 1, 5, 30); // End at 30th June next year
+
+    const filledWeeks = new Set<number>(); // Set to keep track of filled weeks
+
+    const addEvents = (slots: Array<{ days: string; from: string; to: string }>, start: Date, end: Date) => {
       for (const slot of slots) {
         const days = slot.days.split(',').map((day) => day.trim());
         for (const day of days) {
           const dayIndex = dayMapping[day];
           if (dayIndex === undefined) continue;
-  
-          // Calculer la date pour ce jour dans cette semaine
-          const eventDate = new Date(weekStart);
-          eventDate.setDate(weekStart.getDate() + (dayIndex - 1));
-  
-          // Ajouter l'événement
-          events.push({
-            title: `Disponible`,
-            start: `${eventDate.toISOString().split('T')[0]}T${formatTime(
-              slot.from
-            )}`,
-            end: `${eventDate.toISOString().split('T')[0]}T${formatTime(
-              slot.to
-            )}`,
-          });
+
+          let eventDate = new Date(start);
+          while (eventDate <= end) {
+            if (eventDate.getDay() === dayIndex) {
+              events.push({
+                title: `${slot.from} - ${slot.to}`,
+                start: new Date(
+                  eventDate.getFullYear(),
+                  eventDate.getMonth(),
+                  eventDate.getDate(),
+                  parseInt(slot.from.split(':')[0]),
+                  parseInt(slot.from.split(':')[1])
+                ),
+                end: new Date(
+                  eventDate.getFullYear(),
+                  eventDate.getMonth(),
+                  eventDate.getDate(),
+                  parseInt(slot.to.split(':')[0]),
+                  parseInt(slot.to.split(':')[1])
+                ),
+                allDay: false,
+              });
+              filledWeeks.add(getWeekNumber(eventDate));
+            }
+            eventDate.setDate(eventDate.getDate() + 1);
+          }
         }
       }
+    };
+
+    const getWeekNumber = (date: Date) => {
+      const startOfYear = new Date(date.getFullYear(), 0, 1);
+      const pastDaysOfYear = (date.getTime() - startOfYear.getTime()) / 86400000;
+      return Math.ceil((pastDaysOfYear + startOfYear.getDay() + 1) / 7);
+    };
+
+    // Add specific week availability events first
+    for (const [week, slots] of Object.entries(availability)) {
+      if (week === 'default') continue;
+      const weekNumber = parseInt(week.slice(1));
+      const year = weekNumber >= 36 ? new Date().getFullYear() : new Date().getFullYear() + 1;
+      const weekStartDate = getStartDateOfWeek(weekNumber, year);
+      const weekEndDate = new Date(weekStartDate);
+      weekEndDate.setDate(weekEndDate.getDate() + 6);
+      addEvents(slots, weekStartDate, weekEndDate);
     }
-  
+
+    // Add default availability events for remaining weeks
+    let eventDate = new Date(startDate);
+    while (eventDate <= endDate) {
+      const weekNumber = getWeekNumber(eventDate);
+      if (!filledWeeks.has(weekNumber)) {
+        const weekStartDate = getStartDateOfWeek(weekNumber, eventDate.getFullYear());
+        const weekEndDate = new Date(weekStartDate);
+        weekEndDate.setDate(weekEndDate.getDate() + 6);
+        addEvents(availability.default, weekStartDate, weekEndDate);
+      }
+      eventDate.setDate(eventDate.getDate() + 7);
+    }
+
     return events;
   };
-  
-  
-  
+
+  if (loading || key === null) {
+    return <div>Loading...</div>;
+  }
+
+  if (!intervenant) {
+    return <div><h1>La clé est expirée ou invalide.</h1></div>;
+  }
 
   const events = transformAvailabilityToEvents(intervenant.availability);
   console.log(events);
