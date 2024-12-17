@@ -6,6 +6,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { fetchIntervenantByKey } from '@/app/lib/data';
+import { updateAvailability } from '@/app/lib/data';
 
 interface Intervenant {
   firstname: string;
@@ -78,20 +79,20 @@ export default function Page({ params }: { params: Promise<{ key: string }> }) {
       samedi: 6,
       dimanche: 0,
     };
-
+  
     const events = [];
     const startDate = new Date(new Date().getFullYear(), 8, 2); // Start from the week of 2nd September
     const endDate = new Date(new Date().getFullYear() + 1, 5, 30); // End at 30th June next year
-
+  
     const filledWeeks = new Set<number>(); // Set to keep track of filled weeks
-
+  
     const addEvents = (slots: Array<{ days: string; from: string; to: string }>, start: Date, end: Date) => {
       for (const slot of slots) {
         const days = slot.days.split(',').map((day) => day.trim());
         for (const day of days) {
           const dayIndex = dayMapping[day];
           if (dayIndex === undefined) continue;
-
+  
           let eventDate = new Date(start);
           while (eventDate <= end) {
             if (eventDate.getDay() === dayIndex) {
@@ -120,39 +121,95 @@ export default function Page({ params }: { params: Promise<{ key: string }> }) {
         }
       }
     };
-
+  
     const getWeekNumber = (date: Date) => {
       const startOfYear = new Date(date.getFullYear(), 0, 1);
       const pastDaysOfYear = (date.getTime() - startOfYear.getTime()) / 86400000;
       return Math.ceil((pastDaysOfYear + startOfYear.getDay() + 1) / 7);
     };
-
+  
     // Add specific week availability events first
     for (const [week, slots] of Object.entries(availability)) {
       if (week === 'default') continue;
       const weekNumber = parseInt(week.slice(1));
       const year = weekNumber >= 36 ? new Date().getFullYear() : new Date().getFullYear() + 1;
+  
+      // Ignore week 52 of 2024 and week 1 of 2025
+      if (weekNumber === 52 && year === 2024) continue;
+      if (weekNumber === 1 && year === 2025) continue;
+  
       const weekStartDate = getStartDateOfWeek(weekNumber, year);
       const weekEndDate = new Date(weekStartDate);
       weekEndDate.setDate(weekEndDate.getDate() + 6);
       addEvents(slots, weekStartDate, weekEndDate);
     }
-
+  
     // Add default availability events for remaining weeks
     let eventDate = new Date(startDate);
     while (eventDate <= endDate) {
       const weekNumber = getWeekNumber(eventDate);
+      const year = eventDate.getFullYear();
+  
+      // Ignore week 52 of 2024 and week 1 of 2025
+      if ((weekNumber === 52 && year === 2024) || (weekNumber === 1 && year === 2025)) {
+        eventDate.setDate(eventDate.getDate() + 7);
+        continue;
+      }
+  
       if (!filledWeeks.has(weekNumber)) {
-        const weekStartDate = getStartDateOfWeek(weekNumber, eventDate.getFullYear());
+        const weekStartDate = getStartDateOfWeek(weekNumber, year);
         const weekEndDate = new Date(weekStartDate);
         weekEndDate.setDate(weekEndDate.getDate() + 6);
         addEvents(availability.default, weekStartDate, weekEndDate);
       }
       eventDate.setDate(eventDate.getDate() + 7);
     }
-
+  
     return events;
   };
+
+  const getWeekFromDate = (date: Date): string => {
+    const startOfYear = new Date(date.getFullYear(), 0, 1);
+    const days = Math.floor((date.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
+    const weekNumber = Math.ceil((days + startOfYear.getDay() + 1) / 7);
+    return `S${weekNumber}`;
+  };
+
+  const handleDateSelect = async (selectInfo: any) => {
+    const { start, end } = selectInfo;
+    const title = prompt('Entrez un titre pour cet événement :');
+    const week = getWeekFromDate(start); // Déterminer la semaine
+
+    if (title && intervenant) {
+      const newAvailability = {
+        days: start.toLocaleDateString('fr-FR', { weekday: 'long' }).toLowerCase(),
+        from: `${start.getHours()}:${start.getMinutes()}`,
+        to: `${end.getHours()}:${end.getMinutes()}`,
+      };
+
+      try {
+        // Mettre à jour la disponibilité dans la base de données
+        await updateAvailability(intervenant.id, week, [newAvailability]);
+
+        // Ajouter l'événement localement au calendrier
+        const calendarApi = selectInfo.view.calendar;
+        calendarApi.addEvent({
+          title,
+          start,
+          end,
+          allDay: selectInfo.allDay,
+        });
+
+        alert(`Disponibilité mise à jour pour la semaine ${week}.`);
+      } catch (error) {
+        console.error('Erreur lors de la mise à jour de la disponibilité :', error);
+        alert('Une erreur est survenue. Veuillez réessayer.');
+      }
+    } else {
+      alert('Aucun titre fourni. Événement annulé.');
+    }
+  };
+  
 
   if (loading || key === null) {
     return <div>Loading...</div>;
@@ -164,6 +221,7 @@ export default function Page({ params }: { params: Promise<{ key: string }> }) {
 
   const events = transformAvailabilityToEvents(intervenant.availability);
   console.log(events);
+
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
@@ -185,6 +243,7 @@ export default function Page({ params }: { params: Promise<{ key: string }> }) {
             events={events}
             editable={true}
             selectable={true}
+            select={handleDateSelect}
             weekNumbers={true}
             weekends={false}
           />

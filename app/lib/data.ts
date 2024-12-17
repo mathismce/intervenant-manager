@@ -178,3 +178,34 @@ export async function fetchIntervenantByKey(key: string) {
     throw new Error('Database Error: Failed to find intervenant by key.');
   }
 }
+
+export async function updateAvailability(intervenantId: number, week: string, availabilityData: { days: string, from: string, to: string }[]) {
+  try {
+    const client = await db.connect();
+
+    // Convert availabilityData to JSON string format
+    const availabilityJson = JSON.stringify(availabilityData);
+
+    // Update the availability field for the specific intervenant
+    const query = `
+      UPDATE public."Intervenants"
+      SET availability = jsonb_set(
+        availability::jsonb,
+        $1, -- Path to the week in the JSON
+        $2::jsonb -- New availability data as JSON
+      )
+      WHERE id = $3;
+    `;
+
+    // The path to update (e.g., '{S51}')
+    const path = `{${week}}`;
+
+    await client.query(query, [path, availabilityJson, intervenantId]);
+    client.release();
+
+    return { message: `Availability updated successfully for week ${week}` };
+  } catch (error) {
+    console.error('Error updating availability:', error);
+    throw new Error('Failed to update availability.');
+  }
+}
