@@ -154,6 +154,7 @@ export async function createIntervenant(data: any): Promise<Intervenant> {
   }
 }
 
+
 export async function fetchIntervenantByKey(key: string) {
   try {
     const client = await db.connect();
@@ -179,33 +180,61 @@ export async function fetchIntervenantByKey(key: string) {
   }
 }
 
-export async function updateAvailability(intervenantId: number, week: string, availabilityData: { days: string, from: string, to: string }[]) {
+export async function updateAvailability(
+  intervenantId: number,
+  week: string,
+  availabilityData: { days: string; from: string; to: string }[]
+) {
   try {
     const client = await db.connect();
 
     // Convert availabilityData to JSON string format
     const availabilityJson = JSON.stringify(availabilityData);
 
+    // Query to fetch existing availability for the specified week
+    const fetchQuery = `
+      SELECT availability
+      FROM public."Intervenants"
+      WHERE id = $1;
+    `;
+
+    const fetchResult = await client.query(fetchQuery, [intervenantId]);
+
+    if (fetchResult.rows.length === 0) {
+      throw new Error(`Intervenant with ID ${intervenantId} not found.`);
+    }
+
+    const existingAvailability = fetchResult.rows[0].availability || {};
+    const weekPath = `{${week}}`;
+
+    // Parse existing availability for the week
+    const currentWeekData =
+      existingAvailability[week] || []; // Default to empty array if no data exists
+
+    // Merge existing data with new availabilityData
+    const mergedAvailability = [
+      ...currentWeekData,
+      ...availabilityData,
+    ];
+
     // Update the availability field for the specific intervenant
-    const query = `
+    const updateQuery = `
       UPDATE public."Intervenants"
       SET availability = jsonb_set(
         availability::jsonb,
         $1, -- Path to the week in the JSON
-        $2::jsonb -- New availability data as JSON
+        $2::jsonb -- Merged availability data as JSON
       )
       WHERE id = $3;
     `;
 
-    // The path to update (e.g., '{S51}')
-    const path = `{${week}}`;
+    await client.query(updateQuery, [weekPath, JSON.stringify(mergedAvailability), intervenantId]);
 
-    await client.query(query, [path, availabilityJson, intervenantId]);
     client.release();
 
     return { message: `Availability updated successfully for week ${week}` };
   } catch (error) {
-    console.error('Error updating availability:', error);
-    throw new Error('Failed to update availability.');
+    console.error("Error updating availability:", error);
+    throw new Error("Failed to update availability.");
   }
 }
