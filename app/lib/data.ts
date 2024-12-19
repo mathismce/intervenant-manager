@@ -238,3 +238,174 @@ export async function updateAvailability(
     throw new Error("Failed to update availability.");
   }
 }
+
+export async function deleteEventFromAvailability(
+  intervenantId: number,
+  week: string,
+  eventStart: string, // Remplacer eventId par eventStart (ou toute autre info pertinente)
+  eventEnd: string,   // Ajoutez la date de fin si nécessaire
+  eventDays: string   // Ajoutez les jours pour identifier l'événement
+): Promise<void> {
+  const client = await db.connect();
+  try {
+    // Requête pour récupérer la disponibilité actuelle
+    const fetchQuery = `
+        SELECT availability
+        FROM public."Intervenants"
+        WHERE id = $1;
+    `;
+    const result = await client.query(fetchQuery, [intervenantId]);
+    const availability = result.rows[0]?.availability;
+
+    if (!availability) {
+      throw new Error(`No availability found for intervenant with ID ${intervenantId}`);
+    }
+
+    // Vérifier si la semaine existe dans la disponibilité
+    const weekData = availability[week];
+    if (!weekData) {
+      throw new Error(`No availability found for week ${week}`);
+    }
+
+    // Filtrer les événements pour supprimer celui qui correspond
+    const updatedWeekData = weekData.filter((event: any) => {
+      return !(event.from === eventStart && event.to === eventEnd && event.days === eventDays);
+    });
+
+    // Mettre à jour la disponibilité
+    const updateQuery = `
+      UPDATE public."Intervenants"
+      SET availability = jsonb_set(
+        availability::jsonb,
+        $1, -- Chemin vers la semaine
+        $2::jsonb -- Données mises à jour
+      )
+      WHERE id = $3;
+    `;
+    const weekPath = `{${week}}`; // Format JSONB pour la clé de la semaine
+    await client.query(updateQuery, [weekPath, JSON.stringify(updatedWeekData), intervenantId]);
+
+    console.log(
+      `Event with start: ${eventStart}, end: ${eventEnd}, days: ${eventDays} successfully deleted from week ${week} for intervenant ID ${intervenantId}`
+    );
+  } catch (error) {
+    console.error('Error deleting event from availability:', error);
+    throw new Error('Failed to delete event.');
+  } finally {
+    client.release(); // Assurez-vous que le client est toujours libéré
+  }
+}
+
+export async function updateEventAvailability(
+  intervenantId: number,
+  week: string,
+  eventDetails: { days: string; from: string; to: string } // Détails de l'événement à insérer
+): Promise<void> {
+  const client = await db.connect();
+  try {
+    // Requête pour récupérer la disponibilité actuelle
+    const fetchQuery = `
+      SELECT availability
+      FROM public."Intervenants"
+      WHERE id = $1;
+    `;
+    const result = await client.query(fetchQuery, [intervenantId]);
+    const availability = result.rows[0]?.availability;
+
+    if (!availability) {
+      throw new Error(`No availability found for intervenant with ID ${intervenantId}`);
+    }
+
+    // Vérifier si la semaine existe dans la disponibilité
+    const weekData = availability[week];
+    if (!weekData) {
+      throw new Error(`No availability found for week ${week}`);
+    }
+
+    // Ajouter un événement (ou le modifier) dans la semaine pour cet intervenant
+    const updatedWeekData = [...weekData, eventDetails];
+
+    // Mettre à jour la disponibilité de l'intervenant
+    const updateQuery = `
+      UPDATE public."Intervenants"
+      SET availability = jsonb_set(
+        availability::jsonb,
+        $1, -- Chemin vers la semaine
+        $2::jsonb -- Données mises à jour
+      )
+      WHERE id = $3;
+    `;
+    const weekPath = `{${week}}`; // Format JSONB pour la clé de la semaine
+    await client.query(updateQuery, [weekPath, JSON.stringify(updatedWeekData), intervenantId]);
+
+    console.log(
+      `Event with days: ${eventDetails.days}, from: ${eventDetails.from}, to: ${eventDetails.to} successfully added to week ${week} for intervenant ID ${intervenantId}`
+    );
+  } catch (error) {
+    console.error('Error updating event availability:', error);
+    throw new Error('Failed to update event availability.');
+  } finally {
+    client.release(); // Assurez-vous que le client est toujours libéré
+  }
+}
+
+export async function removeAvailability(
+  intervenantId: number,
+  week: string,
+  availabilityToRemove: { days: string; from: string; to: string }
+) {
+  try {
+    const client = await db.connect();
+
+    // Query to fetch existing availability for the specified week
+    const fetchQuery = `
+      SELECT availability
+      FROM public."Intervenants"
+      WHERE id = $1;
+    `;
+
+    const fetchResult = await client.query(fetchQuery, [intervenantId]);
+
+    if (fetchResult.rows.length === 0) {
+      throw new Error(`Intervenant with ID ${intervenantId} not found.`);
+    }
+
+    const existingAvailability = fetchResult.rows[0].availability || {};
+    const weekPath = `{${week}}`;
+
+    // Parse existing availability for the week
+    const currentWeekData =
+      existingAvailability[week] || []; // Default to empty array if no data exists
+
+    // Filter out the availabilityToRemove
+    const updatedAvailability = currentWeekData.filter(
+      (availability: { days: string; from: string; to: string }) =>
+        availability.days !== availabilityToRemove.days ||
+        availability.from !== availabilityToRemove.from ||
+        availability.to !== availabilityToRemove.to
+    );
+
+    // Update the availability field for the specific intervenant
+    const updateQuery = `
+      UPDATE public."Intervenants"
+      SET availability = jsonb_set(
+        availability::jsonb,
+        $1, -- Path to the week in the JSON
+        $2::jsonb -- Updated availability data as JSON
+      )
+      WHERE id = $3;
+    `;
+
+    await client.query(updateQuery, [weekPath, JSON.stringify(updatedAvailability), intervenantId]);
+
+    client.release();
+
+    return { message: `Availability removed successfully for week ${week}` };
+  } catch (error) {
+    console.error("Error removing availability:", error);
+    throw new Error("Failed to remove availability.");
+  }
+}
+
+
+

@@ -107,10 +107,10 @@ export default function IntervenantsTable({
                           <Image src={'/edit.svg'} alt='edition' width={16} height={18} />
                         </Link>
                         <button onClick={() => handleDelete(intervenant.id)} className="text-red-600 hover:text-red-900">
-                          <Image src={'/delete.svg'} alt='edition' width={14} height={16} />
+                          <Image src="/delete.svg" alt='suppression' width={14} height={16} />
                         </button>
                         <button onClick={() => handleRegenerateKey(intervenant)} className="text-red-600 hover:text-red-900">
-                          <Image src={'/clé.svg'} alt='edition' width={14} height={16} />
+                          <Image src={'/clé.svg'} alt='clé' width={14} height={16} />
                         </button>
                       </div>
                     </td>
